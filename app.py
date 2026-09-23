@@ -3,16 +3,17 @@ import pandas as pd
 import io
 from google import genai
 import plotly.express as px
+from sklearn.ensemble import IsolationForest
 
 # Konfigurasi Halaman Streamlit
 st.set_page_config(
-    page_title="Mini AI Data Analyst Agent",
+    page_title="Mini AI Data Analyst & ML Agent",
     page_icon="🤖",
     layout="wide"
 )
 
-st.title("🤖 Mini AI Data Analyst & Budget Assistant")
-st.markdown("Aplikasi asisten data cerdas untuk analisis laporan anggaran dan visualisasi interaktif secara instan.")
+st.title("🤖 Mini AI Data Analyst & Budget Intelligence Agent")
+st.markdown("Aplikasi asisten data cerdas dengan analisis AI, visualisasi Plotly, dan Machine Learning (Anomaly Detection) untuk audit anggaran.")
 
 # Sidebar untuk Konfigurasi API Key
 st.sidebar.header("🔑 Konfigurasi API")
@@ -20,10 +21,14 @@ api_key = st.sidebar.text_input("Masukkan Gemini API Key", type="password")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Navigasi Fitur")
-app_mode = st.sidebar.radio("Pilih Menu:", ["💬 Tanya Jawab AI", "📈 Visualisasi Grafik (Plotly)"])
+app_mode = st.sidebar.radio("Pilih Menu:", [
+    "💬 Tanya Jawab AI", 
+    "📈 Visualisasi Grafik (Plotly)", 
+    "🔍 Deteksi Anomali Anggaran (ML)"
+])
 
 # Komponen File Uploader
-uploaded_file = st.file_uploader("Pilih file dataset (Format: .csv atau .xlsx)", type=["csv", "xlsx"])
+uploaded_file = st.file_uploader("Pilih file dataset anggaran (Format: .csv atau .xlsx)", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
     try:
@@ -34,16 +39,14 @@ if uploaded_file is not None:
             df = pd.read_excel(uploaded_file)
         
         # --- AUTO-CLEANING KHUSUS LAPORAN KEUANGAN / PIVOT EXCEL ---
-        # 1. Perbaiki header jika tergeser (Unnamed)
         if 'Unnamed' in str(df.columns[0]) or 'Unnamed' in str(df.columns[1]):
             df.columns = df.iloc[0]
             df = df[1:].reset_index(drop=True)
         
-        # 2. Bersihkan dan ubah kolom teks berformat angka menjadi tipe numeric murni
+        # Membersihkan dan mengubah kolom teks berformat angka menjadi tipe numeric murni
         for col in df.columns:
             if df[col].dtype == 'object':
                 try:
-                    # Bersihkan pemisah ribuan atau simbol mata uang jika ada
                     cleaned_numeric = pd.to_numeric(
                         df[col].astype(str)
                         .str.replace('.', '', regex=False)
@@ -52,7 +55,6 @@ if uploaded_file is not None:
                         .str.strip(),
                         errors='coerce'
                     )
-                    # Jika setidaknya 30% baris valid sebagai angka, konversi kolom ini jadi numerik
                     if cleaned_numeric.notna().sum() >= len(df) * 0.3:
                         df[col] = cleaned_numeric
                 except:
@@ -131,7 +133,57 @@ if uploaded_file is not None:
                     
                     st.plotly_chart(fig, use_container_width=True)
             else:
-                st.warning("⚠️ Kolom numerik belum terdeteksi secara otomatis. Pastikan file Excel memiliki kolom angka biaya yang jelas.")
+                    st.warning("⚠️ Kolom numerik belum terdeteksi otomatis.")
+
+        # --- MENU 3: DETEKSI ANOMALI ANGGARAN (MACHINE LEARNING) ---
+        elif app_mode == "🔍 Deteksi Anomali Anggaran (ML)":
+            st.subheader("🔍 Modul Machine Learning: Deteksi Anomali Anggaran")
+            st.markdown("Menggunakan algoritma **Isolation Forest** untuk mendeteksi pos belanja yang nilainya tidak normal (terlalu tinggi/rendah secara ekstrem).")
+
+            numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
+
+            if len(numeric_columns) > 0:
+                target_col = st.selectbox("Pilih Kolom Nilai Anggaran untuk Dianalisis", numeric_columns)
+                
+                contamination_rate = st.slider("Tingkat Kontaminasi (Estimasi Proporsi Anomali)", 0.01, 0.20, 0.05, 0.01)
+
+                if st.button("Jalankan Deteksi Anomali"):
+                    try:
+                        # Siapkan data non-null untuk ML
+                        ml_df = df.dropna(subset=[target_col]).copy()
+                        X = ml_df[[target_col]]
+
+                        # Jalankan Isolation Forest
+                        iso = IsolationForest(contamination=contamination_rate, random_state=42)
+                        ml_df['Anomaly'] = iso.fit_predict(X)
+                        
+                        # Anomali ditandai dengan nilai -1 oleh Isolation Forest
+                        anomalies = ml_df[ml_df['Anomaly'] == -1]
+
+                        st.success(f"🎉 Analisis Selesai! Ditemukan {len(anomalies)} data pos anggaran berstatus anomali.")
+
+                        if len(anomalies) > 0:
+                            st.markdown("#### ⚠️ Daftar Pos Anggaran yang Terdeteksi Anomali / Tidak Wajar:")
+                            st.dataframe(anomalies, use_container_width=True)
+                        else:
+                            st.info("Tidak ada anomali ekstrem yang ditemukan dengan tingkat sensitivitas ini.")
+
+                        # Scatter plot untuk visualisasi anomali
+                        st.markdown("#### 📊 Visualisasi Distribusi & Anomali")
+                        fig = px.scatter(
+                            ml_df, 
+                            x=ml_df.index, 
+                            y=target_col, 
+                            color=ml_df['Anomaly'].astype(str),
+                            title="Scatter Plot Deteksi Anomali (Warna merah/berbeda menandakan anomali)",
+                            labels={'x': 'Indeks Baris Data', target_col: 'Nominal Biaya'}
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+
+                    except Exception as e:
+                        st.error(f"Gagal menjalankan Machine Learning: {e}")
+            else:
+                st.warning("⚠️ Tidak ada kolom numerik yang tersedia untuk menjalankan deteksi anomali.")
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
