@@ -7,13 +7,13 @@ from sklearn.ensemble import IsolationForest
 
 # Konfigurasi Halaman Streamlit
 st.set_page_config(
-    page_title="Mini AI Data Analyst & ML Agent",
+    page_title="Mini AI Data Analyst & Agentic AI",
     page_icon="🤖",
     layout="wide"
 )
 
-st.title("🤖 Mini AI Data Analyst & Budget Intelligence Agent")
-st.markdown("Aplikasi asisten data cerdas dengan analisis AI, visualisasi Plotly, dan Machine Learning (Anomaly Detection) untuk audit anggaran.")
+st.title("🤖 Mini AI Data Analyst & Agentic Budget Agent")
+st.markdown("Aplikasi asisten data cerdas berbasis Multi-Step Agentic AI, Visualisasi Plotly, dan Machine Learning.")
 
 # Sidebar untuk Konfigurasi API Key
 st.sidebar.header("🔑 Konfigurasi API")
@@ -24,7 +24,8 @@ st.sidebar.markdown("### Navigasi Fitur")
 app_mode = st.sidebar.radio("Pilih Menu:", [
     "💬 Tanya Jawab AI", 
     "📈 Visualisasi Grafik (Plotly)", 
-    "🔍 Deteksi Anomali Anggaran (ML)"
+    "🔍 Deteksi Anomali Anggaran (ML)",
+    "🤖 Autonomous AI Agent (Auto-Audit)"
 ])
 
 # Komponen File Uploader
@@ -133,59 +134,115 @@ if uploaded_file is not None:
                     
                     st.plotly_chart(fig, use_container_width=True)
             else:
-                    st.warning("⚠️ Kolom numerik belum terdeteksi otomatis.")
+                st.warning("⚠️ Kolom numerik belum terdeteksi otomatis.")
 
         # --- MENU 3: DETEKSI ANOMALI ANGGARAN (MACHINE LEARNING) ---
         elif app_mode == "🔍 Deteksi Anomali Anggaran (ML)":
             st.subheader("🔍 Modul Machine Learning: Deteksi Anomali Anggaran")
-            st.markdown("Menggunakan algoritma **Isolation Forest** untuk mendeteksi pos belanja yang nilainya tidak normal (terlalu tinggi/rendah secara ekstrem).")
+            st.markdown("Menggunakan algoritma **Isolation Forest** untuk mendeteksi pos belanja yang nilainya tidak normal.")
 
             numeric_columns = df.select_dtypes(include=['number']).columns.tolist()
 
             if len(numeric_columns) > 0:
                 target_col = st.selectbox("Pilih Kolom Nilai Anggaran untuk Dianalisis", numeric_columns)
-                
                 contamination_rate = st.slider("Tingkat Kontaminasi (Estimasi Proporsi Anomali)", 0.01, 0.20, 0.05, 0.01)
 
                 if st.button("Jalankan Deteksi Anomali"):
                     try:
-                        # Siapkan data non-null untuk ML
                         ml_df = df.dropna(subset=[target_col]).copy()
                         X = ml_df[[target_col]]
 
-                        # Jalankan Isolation Forest
                         iso = IsolationForest(contamination=contamination_rate, random_state=42)
                         ml_df['Anomaly'] = iso.fit_predict(X)
-                        
-                        # Anomali ditandai dengan nilai -1 oleh Isolation Forest
                         anomalies = ml_df[ml_df['Anomaly'] == -1]
 
                         st.success(f"🎉 Analisis Selesai! Ditemukan {len(anomalies)} data pos anggaran berstatus anomali.")
 
                         if len(anomalies) > 0:
-                            st.markdown("#### ⚠️ Daftar Pos Anggaran yang Terdeteksi Anomali / Tidak Wajar:")
+                            st.markdown("#### ⚠️ Daftar Pos Anggaran yang Terdeteksi Anomali:")
                             st.dataframe(anomalies, use_container_width=True)
                         else:
-                            st.info("Tidak ada anomali ekstrem yang ditemukan dengan tingkat sensitivitas ini.")
+                            st.info("Tidak ada anomali ekstrem yang ditemukan.")
 
-                        # Scatter plot untuk visualisasi anomali
-                        st.markdown("#### 📊 Visualisasi Distribusi & Anomali")
                         fig = px.scatter(
                             ml_df, 
                             x=ml_df.index, 
                             y=target_col, 
                             color=ml_df['Anomaly'].astype(str),
-                            title="Scatter Plot Deteksi Anomali (Warna merah/berbeda menandakan anomali)",
+                            title="Scatter Plot Deteksi Anomali",
                             labels={'x': 'Indeks Baris Data', target_col: 'Nominal Biaya'}
                         )
                         st.plotly_chart(fig, use_container_width=True)
-
                     except Exception as e:
                         st.error(f"Gagal menjalankan Machine Learning: {e}")
             else:
-                st.warning("⚠️ Tidak ada kolom numerik yang tersedia untuk menjalankan deteksi anomali.")
+                st.warning("⚠️ Tidak ada kolom numerik yang tersedia.")
+
+        # --- MENU 4: AUTONOMOUS AI AGENT (MULTI-STEP WORKFLOW) ---
+        elif app_mode == "🤖 Autonomous AI Agent (Auto-Audit)":
+            st.subheader("🤖 Autonomous AI Audit Agent")
+            st.markdown("Agen otonom cerdas yang menjalankan **Multi-Step Pipeline** (Validasi Data ➔ Deteksi ML Anomali ➔ Sintesis Naratif Audit) secara otomatis dalam satu klik.")
+
+            if st.button("🚀 Jalankan Autonomous Audit Pipeline"):
+                if not api_key:
+                    st.warning("⚠️ Mohon masukkan Gemini API Key terlebih dahulu di sidebar.")
+                else:
+                    try:
+                        with st.spinner("🤖 Agent sedang mengeksekusi multi-step pipeline secara otonom..."):
+                            # Step 1: Automated Data Profiling
+                            total_rows = df.shape[0]
+                            total_cols = df.shape[1]
+                            missing_vals = int(df.isna().sum().sum())
+
+                            # Step 2: Automated Machine Learning Anomaly Detection
+                            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+                            anomaly_summary = "Tidak ada kolom numerik untuk menjalankan deteksi anomali."
+                            anomalies_count = 0
+                            
+                            if len(numeric_cols) > 0:
+                                target_col = numeric_cols[0]
+                                ml_df = df.dropna(subset=[target_col]).copy()
+                                if len(ml_df) > 5:
+                                    iso = IsolationForest(contamination=0.05, random_state=42)
+                                    ml_df['Anomaly'] = iso.fit_predict(ml_df[[target_col]])
+                                    anomalies = ml_df[ml_df['Anomaly'] == -1]
+                                    anomalies_count = len(anomalies)
+                                    anomaly_summary = f"Algoritma Isolation Forest memindai kolom '{target_col}' dan mendeteksi {anomalies_count} titik data anomali (lonjakan ekstrem)."
+
+                            # Step 3: Cognitive Synthesis via Gemini AI Agent
+                            client = genai.Client(api_key=api_key)
+                            agent_prompt = f"""
+                            Anda adalah Autonomous Chief Audit Agent yang sangat handal. Lakukan sintesis dan susun Laporan Audit Eksekutif komprehensif berdasarkan hasil pipeline otonom berikut:
+
+                            1. **Data Profiling Metrics**: 
+                               - Total Baris: {total_rows}
+                               - Total Kolom: {total_cols}
+                               - Missing Values: {missing_vals}
+                            2. **Machine Learning Anomaly Audit**: 
+                               - {anomaly_summary}
+                            3. **Sampel Data Aktual (20 Baris Pertama)**:
+                               {df.head(20).to_string()}
+
+                            INSTRUKSI: Susun laporan audit profesional dalam bahasa Indonesia dengan struktur:
+                            - **1. Executive Summary** (Gambaran umum kesehatan data/anggaran)
+                            - **2. Automated Findings & ML Insights** (Temuan otomatis dari mesin dan profil data)
+                            - **3. Risk & Anomaly Assessment** (Analisis potensi pembengkakan/anomali belanja)
+                            - **4. Strategic Recommendations** (Rekomendasi langkah taktis bagi manajemen/tim)
+                            """
+
+                            response = client.models.generate_content(
+                                model='gemini-3.6-flash',
+                                contents=agent_prompt,
+                            )
+
+                            st.success("🎉 Autonomous Audit Pipeline Berhasil Dieksekusi!")
+                            st.markdown("### 📋 Laporan Audit Eksekutif Otonom:")
+                            st.markdown(response.text)
+
+                    except Exception as e:
+                        st.error(f"Terjadi kesalahan saat menjalankan Autonomous Agent: {e}")
 
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
 else:
-    st.info("👆 Silakan unggah file dataset (.csv atau .xlsx) di sidebar untuk mulai menggunakan aplikasi.")
+    st.info("👆 Silakan unggah file dataset anggaran (.csv atau .xlsx) di sidebar untuk mulai menggunakan agen otonom.")
