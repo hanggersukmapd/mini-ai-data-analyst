@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import io  # <-- Tambahkan import ini di bagian atas
+import io
 from google import genai
 
 # Konfigurasi Halaman Streamlit
@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 st.title("🤖 Mini AI Data Analyst Agent")
-st.markdown("Unggah dataset kamu (CSV atau Excel), lalu tanyakan analisis, tren, atau wawasan langsung kepada AI.")
+st.markdown("Unggah dataset kamu (CSV atau Excel), tanyakan apa saja, dan dapatkan jawaban instan berbasis AI tanpa perlu ngoding!")
 
 # Sidebar untuk Konfigurasi API Key
 st.sidebar.header("🔑 Konfigurasi API")
@@ -19,7 +19,7 @@ api_key = st.sidebar.text_input("Masukkan Gemini API Key", type="password")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Tentang Aplikasi")
-st.sidebar.info("Proyek kilat untuk eksplorasi data secara interaktif menggunakan kemampuan penalaran LLM.")
+st.sidebar.info("Aplikasi asisten data interaktif yang memproses dan menjawab pertanyaan secara instan menggunakan kecerdasan buatan.")
 
 # Komponen File Uploader
 uploaded_file = st.file_uploader("Pilih file dataset (Format: .csv atau .xlsx)", type=["csv", "xlsx"])
@@ -42,21 +42,23 @@ if uploaded_file is not None:
         col2.metric("Total Kolom", df.shape[1])
         col3.metric("Total Missing Values", int(df.isna().sum().sum()))
 
-        # --- PERBAIKAN ADA DI SINI ---
-        # Ekstrak Info & Statistik untuk AI menggunakan io.StringIO
+        # Ekstrak Info, Statistik, dan Sampel Data yang Lebih Luas untuk AI
         buffer = io.StringIO()
         df.info(buf=buffer)
         info_str = buffer.getvalue()
         
         summary_stats = df.describe(include='all').to_string()
+        
+        # Mengirim hingga 30 baris pertama agar AI bisa melihat isi data secara langsung
+        data_sample = df.head(30).to_string()
 
         st.markdown("---")
 
         # Input Pertanyaan dari Pengguna
-        st.subheader("💬 Tanya Jawab & Analisis dengan AI")
+        st.subheader("💬 Tanya Jawab & Analisis Instan dengan AI")
         user_prompt = st.text_input(
             "Apa yang ingin kamu ketahui dari data ini?",
-            placeholder="Contoh: 'Apa tren utama dari kolom X?' atau 'Rekomendasikan pembersihan data apa yang diperlukan.'"
+            placeholder="Contoh: 'Berapa nilai biaya tertinggi dan di baris mana?' atau 'Jelaskan ringkasan tren dari data ini.'"
         )
 
         if user_prompt:
@@ -67,9 +69,11 @@ if uploaded_file is not None:
                     # Inisialisasi Google GenAI Client
                     client = genai.Client(api_key=api_key)
 
-                    # Konstruksi Prompt Kontekstual
+                    # Konstruksi Prompt Instruksi Ketat (Langsung Berikan Jawaban, Jangan Beri Kode)
                     analysis_context = f"""
-                    Anda adalah seorang Data Analyst profesional. Pengguna telah mengunggah sebuah dataset dengan karakteristik berikut:
+                    Anda adalah seorang Data Analyst profesional yang handal dan solutif. Pengguna telah mengunggah sebuah dataset.
+                    
+                    INSTRUKSI UTAMA: Jawab pertanyaan pengguna secara langsung, akurat, dan tuntas berdasarkan data di bawah ini. JANGAN menyuruh pengguna menjalankan kode Python atau skrip eksternal. Berikan jawaban angka, nama kategori, atau posisi baris secara langsung.
 
                     1. Informasi Struktur Data (df.info()):
                     {info_str}
@@ -77,16 +81,16 @@ if uploaded_file is not None:
                     2. Statistik Deskriptif (df.describe()):
                     {summary_stats}
 
-                    3. Contoh 5 Baris Pertama Data:
-                    {df.head().to_string()}
+                    3. Sampel Data (Hingga 30 Baris Pertama):
+                    {data_sample}
 
                     Pertanyaan / Permintaan Pengguna:
                     "{user_prompt}"
 
-                    Berikan analisis yang mendalam, terstruktur, tajam, dan solutif dalam bahasa Indonesia yang profesional. Jika diperlukan, berikan juga saran kode Pandas atau langkah visualisasi yang relevan.
+                    Berikan analisis, temuan, dan jawaban langsung yang mendalam, terstruktur, tajam, serta mudah dipahami dalam bahasa Indonesia yang profesional.
                     """
 
-                    with st.spinner("🤖 AI sedang menganalisis dataset kamu..."):
+                    with st.spinner("🤖 AI sedang menganalisis dataset secara mendalam..."):
                         response = client.models.generate_content(
                             model='gemini-3.6-flash',
                             contents=analysis_context,
